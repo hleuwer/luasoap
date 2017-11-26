@@ -20,6 +20,12 @@ local M = {
 
 }
 
+local errorstr = {
+   [400] = "Bad Request",
+   [401] = "Unauthorized",
+   [404] = "Not found",
+   [500] = "Internal Server Error",
+}
 local xml_header_template = '<?xml version="1.0"?>'
 
 local mandatory_soapaction = "Field `soapaction' is mandatory for SOAP 1.1 (or you can force SOAP version with `soapversion' field)"
@@ -99,10 +105,9 @@ function M.call(args)
         else
 	        body = concat(tbody)
         end
-	--assert(tonumber(status_code) == 200, "Error on request: "..tostring(one_or_nil or status_code).."\n\n"..tostring(body))
-	--if tonumber(status_code) ~= 200 then
-	if one_or_nil == nil then
-		local error_msg = "Error on response: "..tostring(status_code).."\n\n"..tostring(body)
+	if one_or_nil == nil or tonumber(status_code) ~= 200 then
+           local error_msg = "Error on response: " .. tostring(status_code) .. " - " ..
+              (errorstr[status_code] or "unknown")  -- .."\n\n"..tostring(body)
 		local extra_info = {
 			http_status_code = status_code,
 			http_response_headers = headers,
@@ -111,11 +116,9 @@ function M.call(args)
 		}
 		return nil, error_msg, extra_info
 	end
-
 	local ok, namespace, method, result = pcall(soap.decode, body)
-	--assert(ok, "Error while decoding: "..tostring(namespace).."\n\n"..tostring(body))
 	if not ok then
-		local error_msg = "Error while decoding: "..tostring(namespace).."\n\n"..tostring(body)
+		local error_msg = "Error while decoding: "..tostring(namespace) -- .."\n\n"..tostring(body)
 		local extra_info = {
 			http_status_code = status_code,
 			http_response_headers = headers,
