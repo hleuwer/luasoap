@@ -18,6 +18,12 @@ local M = {
 	_VERSION = "LuaSOAP 4.0 client",
 }
 
+local errorstr = {
+   [400] = "Bad Request",
+   [401] = "Unauthorized",
+   [404] = "Not found",
+   [500] = "Internal Server Error",
+}
 local xml_header_template = '<?xml version="1.0"?>'
 
 local mandatory_soapaction = "Field `soapaction' is mandatory for SOAP 1.1 (or you can force SOAP version with `soapversion' field)"
@@ -40,6 +46,7 @@ local suggested_layers = {
 -- header: Table describing the header of the SOAP-ENV (optional).
 -- internal_namespace: String with the optional namespace used
 --  as a prefix for the method name (default = "").
+-- auth: String with desired authentication method (optional).
 -- soapversion: Number with SOAP version (default = 1.1).
 -- @return String with namespace, String with method's name and
 --	Table with SOAP elements (LuaExpat's format).
@@ -112,7 +119,7 @@ function M.call(args)
 	local ok, namespace, method, result, soap_headers = pcall(soap.decode, body)
 	--assert(ok, "Error while decoding: "..tostring(namespace).."\n\n"..tostring(body))
 	if not ok then
-		local error_msg = "Error while decoding: "..tostring(namespace).."\n\n"..tostring(body)
+		local error_msg = "Error while decoding: "..tostring(namespace) -- .."\n\n"..tostring(body)
 		local extra_info = {
 			http_status_code = status_code,
 			http_response_headers = headers,
