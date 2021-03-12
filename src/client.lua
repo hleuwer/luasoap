@@ -93,7 +93,7 @@ local function request(args)
 		sink = request_sink,
 		headers = headers,
 		-- digest_handler == false enforces async request handling in http-digest
-		handler = false
+	--	handler = false
 	}
 
 	local protocol = url.url:match"^(%a+)" -- protocol's name
