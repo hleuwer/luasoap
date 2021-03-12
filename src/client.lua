@@ -10,7 +10,7 @@ local concat = require("table").concat
 
 local ltn12 = require("ltn12")
 local soap = require("soap")
-
+local pretty = require "pl.pretty"
 
 local M = {
 	_COPYRIGHT = "Copyright (C) 2004-2020 Kepler Project",
@@ -34,7 +34,11 @@ local suggested_layers = {
 	http = "socket.http",
 	https = "ssl.https",
 }
-
+local function hcopy(t)
+   local r = {}
+   for k, v in pairs(t) do r[k] = v end
+   return r
+end
 ---------------------------------------------------------------------
 -- Call a remote method.
 -- @param args Table with the arguments which could be:
@@ -51,7 +55,7 @@ local suggested_layers = {
 -- @return String with namespace, String with method's name and
 --	Table with SOAP elements (LuaExpat's format).
 ---------------------------------------------------------------------
-function M.call(args)
+local function request(args)
 	assert (args ~= M, "Invalid arguments for the call. Use '.' to call this funcion!")
 	local soap_action, content_type_header
 	if (not args.soapversion) or tonumber(args.soapversion) == 1.1 then
@@ -63,11 +67,14 @@ function M.call(args)
 	else
 		assert(false, invalid_args..tostring(args.soapversion)..", "..tostring(args.soapaction))
 	end
-
 	if args.auth == "digest" then
-		M.http = require"http-digest"
+	   M.http = require"http-digest"
 	else
-		M.http = require"socket.http"
+	   if args.handler ~= nil then
+	      M.http = require "copas.http"
+	   else
+	      M.http = require"socket.http"
+	   end
 	end
 
 	local xml_header = xml_header_template
@@ -92,12 +99,13 @@ function M.call(args)
 		source = ltn12.source.string(request_body),
 		sink = request_sink,
 		headers = headers,
+		-- digest_handler == false enforces async request handling in http-digest
+		handler = false
 	}
 
 	local protocol = url.url:match"^(%a+)" -- protocol's name
 	local mod = assert(M[protocol], '"'..protocol..'" protocol support unavailable. Try soap.client.'..protocol..' = require"'..suggested_layers[protocol]..'" to enable it.')
 	local request = assert(mod.request, 'Could not find request function on module soap.client.'..protocol)
-
 	local one_or_nil, status_code, headers, receive_status = request(url)
 	local body
 	if args.auth == "digest" then
@@ -115,7 +123,6 @@ function M.call(args)
 		}
 		return nil, error_msg, extra_info
 	end
-
 	local ok, namespace, method, result, soap_headers = pcall(soap.decode, body)
 	--assert(ok, "Error while decoding: "..tostring(namespace).."\n\n"..tostring(body))
 	if not ok then
@@ -132,8 +139,37 @@ function M.call(args)
 		}
 		return nil, error_msg, extra_info
 	end
+	if type(args.handler) == "function" then
+	   return args.handler(namespace, method, result, soap_headers, body, args.opaque)
+	else
+	   return namespace, method, result, soap_headers, body
+	end
+end
 
-	return namespace, method, result, soap_headers, body
+---------------------------------------------------------------------
+-- Call a remote method.
+-- @param args Table with the arguments which could be:
+-- url: String with the location of the server.
+-- soapaction: String with the value of the SOAPAction header.
+-- namespace: String with the namespace of the elements.
+-- method: String with the method's name.
+-- entries: Table of SOAP elements (LuaExpat's format).
+-- header: Table describing the header of the SOAP-ENV (optional).
+-- internal_namespace: String with the optional namespace used
+--  as a prefix for the method name (default = "").
+-- soapversion: Number with SOAP version (default = 1.1).
+-- handler: Asynchronous request handler. If not a function this
+--  argument is ignored and the request will be synchronous.
+-- @return String with namespace, String with method's name and
+--	Table with SOAP elements (LuaExpat's format).
+---------------------------------------------------------------------
+function M.call(args)
+   if type(args.handler) == "function" then
+      local copas = require "copas"
+      return copas.addthread(request, hcopy(args))
+   else
+      return request(args)
+   end
 end
 
 ---------------------------------------------------------------------

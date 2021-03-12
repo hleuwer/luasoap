@@ -5,7 +5,7 @@ LUA_SOAP_VERSION=luasoap-$(VERSION)
 PREFIX ?= /usr/local
 
 # Lua version and dirs
-LUA_SYS_VER ?= 5.3
+LUA_SYS_VER ?= 5.2
 # System's lua directory (where Lua libraries will be installed)
 LUA_DIR ?= $(PREFIX)/share/lua/$(LUA_SYS_VER)
 # Installation directories
@@ -22,6 +22,7 @@ install:
 	cp $(MAIN_LUA) $(LUA_DIR)
 	mkdir -p $(INSTALL_DIR)
 	cp $(LUAS) $(INSTALL_DIR)
+install-extra:
 	mkdir -p $(EXTRA_DIR)
 	cp $(EXTRA) $(EXTRA_DIR)
 
